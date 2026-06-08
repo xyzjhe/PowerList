@@ -2,35 +2,75 @@ package thunder_browser
 
 import (
 	"context"
+	"strings"
+	"time"
 
 	"github.com/OpenListTeam/OpenList/v4/internal/conf"
 	log "github.com/sirupsen/logrus"
 )
 
 func (y *ThunderBrowser) createTempDir(ctx context.Context) error {
+	transferDir := ""
+	sleep := time.Second * 3
+	time.Sleep(sleep)
+
 	dir := &Files{
 		ID:    "",
 		Space: "",
 	}
-	err := y.MakeDir(ctx, dir, conf.TempDirName)
-	if err != nil {
-		log.Warnf("create Thunder temp dir failed: %v", err)
+	for range 5 {
+		err := y.MakeDir(ctx, dir, conf.TempDirName)
+		if err != nil {
+			log.Warnf("create Thunder temp dir failed: %v", err)
+			if strings.Contains(err.Error(), "captcha_invalid") {
+				time.Sleep(sleep)
+				continue
+			}
+		}
+
+		files, err := y.getFiles(ctx, dir, "")
+		if err != nil {
+			log.Warnf("Thunder list files failed: %v", err)
+			return err
+		}
+
+		for _, file := range files {
+			if file.GetName() == "我的转存" {
+				transferDir = file.GetID()
+			}
+			if file.GetName() == conf.TempDirName {
+				y.TempDirId = file.GetID()
+				break
+			}
+		}
+
+		log.Info("Thunder temp folder id: ", y.TempDirId)
+		y.cleanupTempDir(ctx)
+		return nil
+	}
+	y.TempDirId = transferDir
+	log.Info("Thunder transfer folder id: ", y.TempDirId)
+	return nil
+}
+
+func (y *ThunderBrowser) cleanupTempDir(ctx context.Context) {
+	dir := &Files{
+		ID:    y.TempDirId,
+		Space: "",
 	}
 
 	files, err := y.getFiles(ctx, dir, "")
 	if err != nil {
-		return err
+		log.Warnf("Thunder list files failed: %v", err)
+		return
 	}
 
 	for _, file := range files {
-		if file.GetName() == conf.TempDirName {
-			y.TempDirId = file.GetID()
-			break
+		err := y.Remove(ctx, file)
+		if err != nil {
+			log.Warnf("Thunder remove file failed: %v", err)
 		}
 	}
-
-	log.Info("Thunder temp folder id: ", y.TempDirId)
-	return nil
 }
 
 func (y *ThunderBrowser) createOfflineDir(ctx context.Context) error {
