@@ -35,14 +35,15 @@ var (
 
 var resolveGuangYaPanShareLink = func(ctx context.Context, d *GuangYaPanShare, file model.Obj, args model.LinkArgs) (*model.Link, error) {
 	count := op.GetDriverCount("GuangYaPan")
-	var err error
+	var lastErr error
 	for i := 0; i < count; i++ {
 		link, err := d.link(ctx, file, args)
 		if err == nil {
 			return link, nil
 		}
+		lastErr = err
 	}
-	return nil, err
+	return nil, lastErr
 }
 
 type GuangYaPanShare struct {

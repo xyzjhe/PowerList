@@ -73,14 +73,15 @@ func (d *Pan123Share) List(ctx context.Context, dir model.Obj, args model.ListAr
 
 func (d *Pan123Share) Link(ctx context.Context, file model.Obj, args model.LinkArgs) (*model.Link, error) {
 	count := op.GetDriverCount("123Pan")
-	var err error
+	var lastErr error
 	for i := 0; i < count; i++ {
 		link, err := d.link(ctx, file, args)
 		if err == nil {
 			return link, nil
 		}
+		lastErr = err
 	}
-	return nil, err
+	return nil, lastErr
 }
 
 func (d *Pan123Share) link(ctx context.Context, file model.Obj, args model.LinkArgs) (*model.Link, error) {

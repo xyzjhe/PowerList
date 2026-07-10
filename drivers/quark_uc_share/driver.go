@@ -31,14 +31,15 @@ var quarkUCShareLinkCache = cache.NewKeyedCache[*model.Link](time.Hour)
 var resolveQuarkUCShareLink = func(ctx context.Context, d *QuarkUCShare, file model.Obj, args model.LinkArgs) (*model.Link, error) {
 	name := d.getDriverName()
 	count := op.GetDriverCount(name)
-	var err error
+	var lastErr error
 	for i := 0; i < count; i++ {
 		link, err := d.link(ctx, file, args)
 		if err == nil {
 			return link, nil
 		}
+		lastErr = err
 	}
-	return nil, err
+	return nil, lastErr
 }
 
 func (d *QuarkUCShare) Config() driver.Config {

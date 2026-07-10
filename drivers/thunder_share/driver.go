@@ -23,14 +23,15 @@ var thunderShareLinkCache = cache.NewKeyedCache[*model.Link](time.Hour)
 
 var resolveThunderShareLink = func(ctx context.Context, d *ThunderShare, file model.Obj, args model.LinkArgs) (*model.Link, error) {
 	count := op.GetDriverCount("ThunderBrowser")
-	var err error
+	var lastErr error
 	for i := 0; i < count; i++ {
 		link, err := d.link(ctx, file, args)
 		if err == nil {
 			return link, nil
 		}
+		lastErr = err
 	}
-	return nil, err
+	return nil, lastErr
 }
 
 func (d *ThunderShare) Config() driver.Config {

@@ -40,7 +40,7 @@ func aliyundriveShareLinkCacheKey(fileID string) string {
 
 var resolveAliyundriveShareLink = func(ctx context.Context, d *AliyundriveShare2Open, file model.Obj, args model.LinkArgs) (*model.Link, error) {
 	count := op.GetDriverCount("AliyundriveOpen")
-	var err error
+	var lastErr error
 	for i := 0; i < count; i++ {
 		link, myFile, err := d.aliLink(file)
 		if err == nil {
@@ -50,8 +50,9 @@ var resolveAliyundriveShareLink = func(ctx context.Context, d *AliyundriveShare2
 
 			return d.p115Link(ctx, link, myFile, args)
 		}
+		lastErr = err
 	}
-	return nil, err
+	return nil, lastErr
 }
 
 func (d *AliyundriveShare2Open) Config() driver.Config {

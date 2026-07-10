@@ -28,14 +28,15 @@ var cloud189ShareLinkCache = cache.NewKeyedCache[*model.Link](time.Hour)
 
 var resolveCloud189ShareLink = func(ctx context.Context, d *Cloud189Share, file model.Obj) (*model.Link, error) {
 	count := op.GetDriverCount("189CloudPC")
-	var err error
+	var lastErr error
 	for i := 0; i < count; i++ {
 		link, err := d.link(ctx, file)
 		if err == nil {
 			return link, nil
 		}
+		lastErr = err
 	}
-	return nil, err
+	return nil, lastErr
 }
 
 func (d *Cloud189Share) Config() driver.Config {

@@ -30,14 +30,15 @@ var baiduShareLinkCache = cache.NewKeyedCache[*model.Link](time.Hour)
 
 var resolveBaiduShareLink = func(ctx context.Context, d *BaiduShare2, file model.Obj, args model.LinkArgs) (*model.Link, error) {
 	count := op.GetDriverCount("BaiduNetdisk")
-	var err error
+	var lastErr error
 	for i := 0; i < count; i++ {
 		link, err := d.link(ctx, file, args)
 		if err == nil {
 			return link, nil
 		}
+		lastErr = err
 	}
-	return nil, err
+	return nil, lastErr
 }
 
 type BaiduShare2 struct {
