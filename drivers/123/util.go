@@ -28,9 +28,9 @@ import (
 // do others that not defined in Driver interface
 
 const (
-	Api              = "https://www.123pan.com/api"
-	AApi             = "https://www.123pan.com/a/api"
-	BApi             = "https://www.123pan.com/b/api"
+	Api              = "https://yun.123pan.com/api"
+	AApi             = "https://yun.123pan.com/a/api"
+	BApi             = "https://yun.123pan.com/b/api"
 	LoginApi         = "https://login.123pan.com/api"
 	MainApi          = Api
 	SignIn           = LoginApi + "/user/sign_in"
@@ -82,6 +82,7 @@ type Params struct {
 	XChannel    string
 	XAppVersion string
 }
+
 func signPath(path string, os string, version string) (k string, v string) {
 	table := []byte{'a', 'd', 'e', 'f', 'g', 'h', 'l', 'm', 'y', 'i', 'j', 'n', 'o', 'p', 'k', 'q', 'r', 's', 't', 'u', 'b', 'c', 'v', 'w', 's', 'z'}
 	random := fmt.Sprintf("%.f", math.Round(1e7*rand.Float64()))
