@@ -179,12 +179,17 @@ func (y *Cloud189PC) List(ctx context.Context, dir model.Obj, args model.ListArg
 
 func (y *Cloud189PC) Link(ctx context.Context, file model.Obj, args model.LinkArgs) (*model.Link, error) {
 	if strings.HasSuffix(strings.ToLower(file.GetName()), ".cas") {
-		link, cleanupTarget, err := y.resolveExistingCASFile(ctx, file)
+		casStream, err := openTransferredCASStream(ctx, y, file)
 		if err != nil {
 			return nil, err
 		}
-		scheduleResolvedTempCleanup(ctx, y, cleanupTarget)
-		return link, nil
+		defer casStream.Close()
+
+		info, err := readTransferredCASInfo(casStream)
+		if err != nil {
+			return nil, err
+		}
+		return y.RestoreCASForPlayback(ctx, file.GetName(), info)
 	}
 	return y.directLink(ctx, file)
 }
@@ -301,6 +306,16 @@ func (y *Cloud189PC) Move(ctx context.Context, srcObj, dstDir model.Obj) (model.
 	if err = y.WaitBatchTask("MOVE", resp.TaskID, time.Millisecond*400); err != nil {
 		return nil, err
 	}
+
+	// 跟随移动 torrent 文件
+	if !srcObj.IsDir() {
+		var srcFolderId string
+		if f, ok := srcObj.(*Cloud189File); ok {
+			srcFolderId = f.ParentID
+		}
+		y.torrentFollowMove(srcFolderId, srcObj.GetName(), dstDir)
+	}
+
 	return srcObj, nil
 }
 
@@ -330,13 +345,19 @@ func (y *Cloud189PC) Rename(ctx context.Context, srcObj model.Obj, newName strin
 	var resp RenameResp
 	_, err := y.request(fullUrl, method, func(req *resty.Request) {
 		req.SetContext(ctx).SetQueryParams(queryParam)
-	}, nil, resp, isFamily)
+	}, nil, &resp, isFamily)
 	if err != nil {
 		if code, ok := resp.ResCode.(string); ok && code == "FileAlreadyExists" {
 			return nil, errs.ObjectAlreadyExists
 		}
 		return nil, err
 	}
+
+	// 跟随重命名 torrent 文件
+	if f, ok := srcObj.(*Cloud189File); ok {
+		y.torrentFollowRename(f.ParentID, srcObj.GetName(), newName)
+	}
+
 	switch f := srcObj.(type) {
 	case *Cloud189File:
 		return resp.toFile(f), nil
@@ -358,7 +379,20 @@ func (y *Cloud189PC) Copy(ctx context.Context, srcObj, dstDir model.Obj) error {
 	if err != nil {
 		return err
 	}
-	return y.WaitBatchTask("COPY", resp.TaskID, time.Second)
+	if err = y.WaitBatchTask("COPY", resp.TaskID, time.Second); err != nil {
+		return err
+	}
+
+	// 跟随复制 torrent 文件
+	if !srcObj.IsDir() {
+		var srcFolderId string
+		if f, ok := srcObj.(*Cloud189File); ok {
+			srcFolderId = f.ParentID
+		}
+		y.torrentFollowCopy(srcFolderId, srcObj.GetName(), dstDir)
+	}
+
+	return nil
 }
 
 func (y *Cloud189PC) Remove(ctx context.Context, obj model.Obj) error {
