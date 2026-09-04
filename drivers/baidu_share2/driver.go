@@ -39,10 +39,14 @@ func isBaiduTransientErrno(errno int64) bool {
 
 // baiduErrnoMessage 把常见 errno 翻译成可读文案。-21 的文案命中 alist-tvbox 的失效分享
 // 清理关键字,让真死链能被自动清掉;-9 可能是风控引起的瞬时错误,不映射成失效文案。
+// -19/-62/-65 统一翻成带「请稍后」的限流文案:原始 body 的中文 show_msg 是 \uXXXX 转义,
+// alist-tvbox 的限流正则匹配不到转义串,翻译后的明文才能被正确归类为限流而非死链。
 func baiduErrnoMessage(errno int64, body string) string {
 	switch errno {
 	case -21:
 		return "分享已取消或因违规无法访问(errno=-21)"
+	case -19:
+		return "访问频率太快,请稍后重试(errno=-19)"
 	case -62:
 		return "触发百度风控,请稍后重试(errno=-62)"
 	case -65:
@@ -284,19 +288,19 @@ func (d *BaiduShare2) List(ctx context.Context, dir model.Obj, args model.ListAr
 				if len(respJson.List) >= 100 {
 					more = true
 				}
-				} else {
-					// 瞬时错误(-9 sekey 过期/-62 风控):清 Token 重新 Validate 后重试本页一次
-					if !revalidated && isBaiduTransientErrno(respJson.Errno) {
-						revalidated = true
-						d.Token = ""
-						if verr := d.Validate(); verr == nil {
-							log.Infof("Baidu share list errno=%d, re-validated token and retrying page %d", respJson.Errno, page)
-							more = true
-							continue
-						}
+			} else {
+				// 瞬时错误(-9 sekey 过期/-62 风控):清 Token 重新 Validate 后重试本页一次
+				if !revalidated && isBaiduTransientErrno(respJson.Errno) {
+					revalidated = true
+					d.Token = ""
+					if verr := d.Validate(); verr == nil {
+						log.Infof("Baidu share list errno=%d, re-validated token and retrying page %d", respJson.Errno, page)
+						more = true
+						continue
 					}
-					err = fmt.Errorf("%s", res.Body())
 				}
+				err = fmt.Errorf("%s", baiduErrnoMessage(respJson.Errno, res.String()))
+			}
 		}
 	}
 	return objs, err
